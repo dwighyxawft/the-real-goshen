@@ -1,0 +1,3 @@
+import type { DiscountEvent } from '@/server/db/schema';
+export type EffectiveDiscount = { percentage: number; eventName: string; endsAt: Date; originalPrice: number; finalPrice: number };
+export function getEffectiveDiscount(productId: string, price: number, events: DiscountEvent[]): EffectiveDiscount | null { const matching = events.filter((event) => event.scope === 'all' || event.productId === productId).sort((a,b) => b.percentage - a.percentage || (a.scope === 'product' ? -1 : 1)); const event = matching[0]; if (!event) return null; return { percentage:event.percentage, eventName:event.name, endsAt:event.endsAt, originalPrice:price, finalPrice:Math.round(price * (100 - event.percentage) / 100) }; }

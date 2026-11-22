@@ -1,0 +1,2 @@
+export function parsePagination(page = '1', limit = '24', max = 48) { const parsedPage = Math.max(1, Number.parseInt(page, 10) || 1); const parsedLimit = Math.min(max, Math.max(1, Number.parseInt(limit, 10) || Number.parseInt(limit, 10) || 24)); return { page: parsedPage, limit: parsedLimit, offset: (parsedPage - 1) * parsedLimit }; }
+export function pageMeta(page: number, limit: number, total: number) { return { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) }; }

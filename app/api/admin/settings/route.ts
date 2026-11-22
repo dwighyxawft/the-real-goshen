@@ -1,0 +1,9 @@
+import { z } from 'zod';
+import { requireAdmin } from '@/server/resources/auth/require-admin';
+import { getAdminSettings, updateSettings } from '@/server/resources/settings/admin-settings.service';
+import { handleError, ok } from '@/server/common/utils/api-response';
+import { parseJson } from '@/server/common/utils/request';
+export const runtime = 'nodejs'; export const dynamic = 'force-dynamic';
+const schema = z.object({ whatsappNumber:z.string().trim().max(30).optional(), defaultLeadTimeWeeksMin:z.number().int().min(0).max(52).optional(), defaultLeadTimeWeeksMax:z.number().int().min(0).max(52).optional(), preorderNote:z.string().max(2000).nullable().optional(), storeEmail:z.string().email().optional(), instagramUrl:z.string().url().nullable().optional(), tiktokUrl:z.string().url().nullable().optional(), facebookUrl:z.string().url().nullable().optional(), address:z.string().max(500).nullable().optional(), businessHours:z.string().max(500).nullable().optional(), heroHeadline:z.string().max(300).optional(), heroSubheadline:z.string().max(500).optional(), heroImageKey:z.string().startsWith('site/').nullable().optional(), aboutBody:z.string().max(20000).optional(), aboutImageKey:z.string().startsWith('site/').nullable().optional(), announcementText:z.string().max(500).nullable().optional(), announcementActive:z.boolean().optional() }).refine((value) => value.defaultLeadTimeWeeksMin === undefined || value.defaultLeadTimeWeeksMax === undefined || value.defaultLeadTimeWeeksMax >= value.defaultLeadTimeWeeksMin, { message:'Maximum lead time must be at least the minimum.' });
+export async function GET() { try { await requireAdmin(); return ok(await getAdminSettings()); } catch(error) { return handleError(error); } }
+export async function PATCH(req: Request) { try { await requireAdmin(); return ok(await updateSettings(await parseJson(req, schema))); } catch(error) { return handleError(error); } }

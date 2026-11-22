@@ -1,0 +1,4 @@
+'use client';
+
+import Link from 'next/link';
+export default function AdminSetup() { return <main className="admin-login"><form className="login-card"><Link href="/" className="brand-mark"><span className="brand-monogram">TrG</span><span className="brand-name">TrG_studio</span></Link><span className="eyebrow">One-time setup</span><h1>Set up your admin</h1><p>Create the private account you will use to manage the studio.</p><div className="field"><label>Name</label><input required /></div><div className="field"><label>Email</label><input type="email" required /></div><div className="field"><label>Password</label><input type="password" required /></div><div className="field"><label>Setup secret</label><input type="password" required /></div><button className="button button-dark" style={{ width:'100%' }}>Create admin account</button></form></main>; }
