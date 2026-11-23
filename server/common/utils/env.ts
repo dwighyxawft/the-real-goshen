@@ -45,3 +45,7 @@ export const env = envSchema.parse({
   DEFAULT_WHATSAPP_NUMBER: process.env.DEFAULT_WHATSAPP_NUMBER,
   CRON_SECRET: process.env.CRON_SECRET,
 });
+
+if (env.NODE_ENV === 'production' && (env.NEXT_PUBLIC_SITE_URL.includes('localhost') || env.NEXT_PUBLIC_SITE_URL.includes('127.0.0.1'))) {
+  console.warn('[env] NEXT_PUBLIC_SITE_URL is set to a localhost address in production. Email logos and links will be broken. Set it to your live domain (e.g. https://trgstudio.com).');
+}

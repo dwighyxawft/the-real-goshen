@@ -19,7 +19,7 @@ export default function ContactsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-contacts', status, q],
-    queryFn: () => listAdminContacts({ status: status || undefined, q: q || undefined, page: 1, limit: 50 }),
+    queryFn: () => listAdminContacts({ status: status || undefined, q: q || undefined, page: '1', limit: '50' }),
     retry: false,
   });
 
