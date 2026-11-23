@@ -1,21 +1,107 @@
-'use client';
-
 import Link from 'next/link';
-import { ArrowLeft, Check, Clock3, MessageCircle, Minus, Plus, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
-import { useCart } from '@/components/public/cart-context';
-import { ProductArt, ProductCard } from '@/components/public/product-card';
-import { SiteChrome } from '@/components/public/site-chrome';
-import { formatNaira, getProduct, products } from '@/lib/products';
+import Image from 'next/image';
+import { ArrowLeft, Check, Clock3, MessageCircle, Minus, Plus, ShieldCheck, Sparkles } from 'lucide-react';
+import { notFound } from 'next/navigation';
+import { SiteChrome, getChromeData } from '@/components/public/site-chrome';
+import { ProductCard } from '@/components/public/product-card';
+import { getPublicProduct } from '@/server/resources/products/products.service';
+import { listPublicProducts } from '@/server/resources/products/products.service';
+import { getPublicSettings } from '@/server/resources/settings/settings.service';
+import { formatNaira } from '@/lib/format';
+import { getRelatedProducts } from '@/server/resources/products/products.service';
 
-export default function ProductPage({ params }: { params: { slug: string } }) {
-  const product = getProduct(params.slug);
-  const { add } = useCart();
-  const [quantity, setQuantity] = useState(1);
-  const [added, setAdded] = useState(false);
-  if (!product) return <SiteChrome><div className="empty-state section"><h2>That piece wandered off</h2><Link href="/products" className="button button-dark">Back to the collection</Link></div></SiteChrome>;
-  const related = products.filter((item) => item.category === product.category && item.id !== product.id).slice(0,4);
-  return <SiteChrome><div className="container"><div className="detail-layout"><div><Link href="/products" className="text-link"><ArrowLeft size={15} style={{ display:'inline', marginRight:4 }} /> Back to shop</Link><ProductArt product={product} className="detail-art" /></div><div className="detail-copy"><span className="eyebrow">{product.category}</span><h1>{product.name}</h1><div className="detail-price"><strong>{formatNaira(product.price)}</strong>{product.originalPrice && <><del>{formatNaira(product.originalPrice)}</del><span className="badge discount">−{product.discount}%</span></>}</div>{product.availability === 'preorder' ? <div className="availability-card"><strong><Clock3 size={16} style={{ display:'inline', marginRight:6 }} /> Preorder · arrives in about {product.leadTime}</strong><span className="helper">We confirm availability, payment, and delivery with you directly.</span></div> : <div className="availability-card"><strong>{product.stock === 'limited' ? 'Limited stock' : 'In stock'}</strong><span className="helper">Ready stock in Lagos. Send your interests and we will confirm details.</span></div>}<p className="detail-description">{product.description}</p><div className="qty-row"><span className="helper">Quantity</span><div className="stepper"><button onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Decrease quantity"><Minus size={15} /></button><span>{quantity}</span><button onClick={() => setQuantity((value) => Math.min(10, value + 1))} aria-label="Increase quantity"><Plus size={15} /></button></div></div><div className="detail-actions"><button className="button button-dark" onClick={() => { add(product.id, quantity); setAdded(true); }}>{added ? <><Check size={17} /> Added · View cart</> : 'Add to cart'}</button><a className="button button-light-outline" href={`https://wa.me/2348000000000?text=${encodeURIComponent(`Hello TrG_studio, I am interested in the ${product.name}.`)}`}><MessageCircle size={17} /> Ask about this on WhatsApp</a></div><div className="trust-row"><span><ShieldCheck size={15} /> Direct support</span><span><SparkleIcon /> Low prices</span><span><Clock3 size={15} /> Updates until it arrives</span></div></div></div></div><section className="section section-soft"><div className="container"><div className="section-heading"><div><span className="eyebrow">Keep browsing</span><h2>You may also like</h2></div></div><div className="product-rail">{related.map((item) => <ProductCard key={item.id} product={item} />)}</div></div></section></SiteChrome>;
+export const revalidate = 30;
+
+type Props = { params: { slug: string } };
+
+export async function generateMetadata({ params }: Props) {
+  const product = await getPublicProduct(params.slug).catch(() => null);
+  if (!product) return { title: 'Product not found' };
+  return { title: `${product.name} — TrG Studio`, description: product.description };
 }
 
-function SparkleIcon() { return <span style={{ color: 'var(--gold-text)' }}>✦</span>; }
+export default async function ProductPage({ params }: Props) {
+  const { settings, categories, discountBar } = await getChromeData();
+  const product = await getPublicProduct(params.slug).catch(() => null);
+  if (!product) notFound();
+
+  const related = await getRelatedProducts(params.slug).catch(() => ({ items: [] }));
+  const whatsapp = settings?.whatsappNumber ?? '';
+  const whatsappUrl = whatsapp ? `https://wa.me/${whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello TrG_studio, I am interested in the ${product.name}.`)}` : '/contact';
+
+  const images = product.images ?? [];
+  const hasMultiple = images.length > 1;
+  const hasSingle = images.length === 1;
+  const hasNone = images.length === 0;
+  const isPreorder = product.availability === 'preorder';
+  const discount = product.effectiveDiscount;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description,
+    image: images.slice(0, 5),
+    offers: { '@type': 'Offer', price: product.price, priceCurrency: 'NGN', availability: isPreorder ? 'PreOrder' : 'InStock' },
+  };
+
+  return (
+    <SiteChrome settings={settings} categories={categories} discountBar={discountBar}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <div className="container">
+        <div className="detail-layout">
+          <div>
+            <Link href="/products" className="text-link"><ArrowLeft size={15} style={{ display: 'inline', marginRight: 4 }} /> Back to shop</Link>
+            {hasNone && <div className="product-art-placeholder" style={{ borderRadius: 20, marginTop: 16, aspectRatio: '4/5' }}><span>TrG</span></div>}
+            {hasSingle && (
+              <Image src={images[0]} alt={product.name} width={600} height={750} className="detail-art" style={{ borderRadius: 20, marginTop: 16, width: '100%', height: 'auto' }} unoptimized />
+            )}
+            {hasMultiple && (
+              <ProductGallery images={images} name={product.name} />
+            )}
+          </div>
+          <div className="detail-copy">
+            <span className="eyebrow">{product.category?.name ?? 'Accessories'}</span>
+            <h1>{product.name}</h1>
+            <div className="detail-price">
+              <strong>{formatNaira(product.price)}</strong>
+              {discount && <><del>{formatNaira(discount.originalPrice)}</del><span className="badge discount">&minus;{discount.percentage}%</span></>}
+            </div>
+            {isPreorder ? (
+              <div className="availability-card">
+                <strong><Clock3 size={16} style={{ display: 'inline', marginRight: 6 }} /> Preorder · arrives in about {product.leadTime?.text}</strong>
+                <span className="helper">{settings?.preorderNote ?? 'We confirm availability, payment, and delivery with you directly.'}</span>
+              </div>
+            ) : (
+              <div className="availability-card">
+                <strong>{product.stockStatus === 'limited' ? 'Limited stock' : 'In stock'}</strong>
+                <span className="helper">Ready stock in Lagos. Send your interests and we will confirm details.</span>
+              </div>
+            )}
+            <p className="detail-description">{product.description}</p>
+            <ProductActions productId={product.id} name={product.name} whatsappUrl={whatsappUrl} />
+            <div className="trust-row">
+              <span><ShieldCheck size={15} /> Direct support</span>
+              <span><Sparkles size={15} /> Curated pieces</span>
+              <span><Clock3 size={15} /> Updates until it arrives</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {related.items.length > 0 && (
+        <section className="section section-soft">
+          <div className="container">
+            <div className="section-heading"><div><span className="eyebrow">Keep browsing</span><h2>You may also like</h2></div></div>
+            <div className="product-rail">{related.items.map((item) => <ProductCard key={item.id} product={item} />)}</div>
+          </div>
+        </section>
+      )}
+    </SiteChrome>
+  );
+}
+
+function ProductActions({ productId, name, whatsappUrl }: { productId: string; name: string; whatsappUrl: string }) {
+  return (
+    <ProductActionsClient productId={productId} name={name} whatsappUrl={whatsappUrl} />
+  );
+}
