@@ -17,8 +17,18 @@ type Settings = {
   instagramUrl: string | null;
   tiktokUrl: string | null;
   facebookUrl: string | null;
+  address: string | null;
+  businessHours: string | null;
+  heroHeadline: string;
+  heroSubheadline: string;
+  heroImageUrl: string | null;
+  aboutBody: string;
+  aboutImageUrl: string | null;
   announcementText: string | null;
   announcementActive: boolean;
+  defaultLeadTimeWeeksMin: number;
+  defaultLeadTimeWeeksMax: number;
+  preorderNote: string | null;
 };
 type DiscountBar = { name: string; percentage: number; endsAt: string } | null;
 type SearchResult = { id: string; slug: string; name: string; price: number; coverImage: string | null; effectiveDiscount: { percentage: number } | null };

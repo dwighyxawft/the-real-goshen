@@ -1,6 +1,62 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
-import { SiteChrome } from '@/components/public/site-chrome';
+import { SiteChrome, getChromeData } from '@/components/public/site-chrome';
+import { db } from '@/server/db';
+import { blogPosts } from '@/server/db/schema';
+import { and, desc, eq, lte } from 'drizzle-orm';
+import { getPublicUrl } from '@/server/storage/r2';
 
-const posts = [{ slug:'bag-rotation', title:'How to build a bag rotation that works harder', type:'Style note', time:'05 min', text:'A few considered shapes can take you from weekday errands to dinner plans.' }, { slug:'slower-preorder', title:'Why we love the slower preorder model', type:'Inside TrG', time:'03 min', text:'More intention, less waste, and pieces chosen for their staying power.' }, { slug:'finishing-touch', title:'The finishing touch is never just one thing', type:'The edit', time:'04 min', text:'Meet the accessories that make a simple look feel complete.' }];
-export default function BlogPage() { return <SiteChrome><section className="page-hero"><div className="container"><span className="breadcrumb">Home / Journal</span><h1>The journal</h1><p>Notes on style, confidence, and choosing the pieces you will reach for.</p></div></section><section className="section"><div className="container"><div className="category-grid">{posts.map((post, index) => <article key={post.slug} className="admin-card" style={{ minHeight:index === 0 ? 300 : 260, display:'flex', flexDirection:'column' }}><span className="eyebrow">{post.type} · {post.time}</span><h2 style={{ margin:'14px 0', fontSize:index === 0 ? 38 : 30 }}>{post.title}</h2><p style={{ color:'var(--muted)' }}>{post.text}</p><Link href={`/blog/${post.slug}`} className="text-link" style={{ marginTop:'auto' }}>Read story <ArrowRight size={15} style={{ display:'inline' }} /></Link></article>)}</div></div></section></SiteChrome>; }
+export const revalidate = 60;
+
+export async function generateMetadata() {
+  return { title: 'Journal — TrG Studio', description: 'Notes on style, confidence, and choosing the pieces you will reach for.' };
+}
+
+export default async function BlogPage() {
+  const { settings, categories, discountBar } = await getChromeData();
+
+  let posts: Array<{ id: string; title: string; slug: string; excerpt: string; coverUrl: string | null; publishedAt: Date | null; readMinutes: number }> = [];
+  try {
+    const rows = await db.select().from(blogPosts).where(and(eq(blogPosts.isPublished, true), lte(blogPosts.publishedAt, new Date()))).orderBy(desc(blogPosts.publishedAt));
+    posts = rows.map((post) => ({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      coverUrl: post.coverImageKey ? getPublicUrl(post.coverImageKey) : null,
+      publishedAt: post.publishedAt,
+      readMinutes: Math.max(1, Math.ceil(post.content.split(/\s+/).length / 200)),
+    }));
+  } catch { /* empty */ }
+
+  return (
+    <SiteChrome settings={settings} categories={categories} discountBar={discountBar}>
+      <section className="page-hero"><div className="container"><span className="breadcrumb">Home / Journal</span><h1>The journal</h1><p>Notes on style, confidence, and choosing the pieces you will reach for.</p></div></section>
+      <section className="section">
+        <div className="container">
+          {posts.length > 0 ? (
+            <div className="category-grid">
+              {posts.map((post, index) => (
+                <article key={post.id} className="admin-card" style={{ minHeight: index === 0 ? 300 : 260, display: 'flex', flexDirection: 'column' }}>
+                  {post.coverUrl && (
+                    <Image src={post.coverUrl} alt={post.title} width={400} height={200} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 12, marginBottom: 14 }} unoptimized />
+                  )}
+                  <span className="eyebrow">{post.readMinutes} min read</span>
+                  <h2 style={{ margin: '14px 0', fontSize: index === 0 ? 38 : 30 }}>{post.title}</h2>
+                  <p style={{ color: 'var(--muted)' }}>{post.excerpt}</p>
+                  <Link href={`/blog/${post.slug}`} className="text-link" style={{ marginTop: 'auto' }}>Read story <ArrowRight size={15} style={{ display: 'inline' }} /></Link>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <h2>No stories yet</h2>
+              <p>Check back soon for notes on style and confidence.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </SiteChrome>
+  );
+}

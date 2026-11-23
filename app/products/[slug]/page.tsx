@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Check, Clock3, MessageCircle, Minus, Plus, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock3, ShieldCheck, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { SiteChrome, getChromeData } from '@/components/public/site-chrome';
 import { ProductCard } from '@/components/public/product-card';
-import { getPublicProduct } from '@/server/resources/products/products.service';
-import { listPublicProducts } from '@/server/resources/products/products.service';
-import { getPublicSettings } from '@/server/resources/settings/settings.service';
-import { formatNaira } from '@/lib/format';
-import { getRelatedProducts } from '@/server/resources/products/products.service';
+import { ProductGallery } from '@/components/public/product-gallery';
+import { ProductActionsClient } from '@/components/public/product-actions';
+import { getPublicProduct, getRelatedProducts } from '@/server/resources/products/products.service';
 
 export const revalidate = 30;
 
@@ -79,7 +77,7 @@ export default async function ProductPage({ params }: Props) {
               </div>
             )}
             <p className="detail-description">{product.description}</p>
-            <ProductActions productId={product.id} name={product.name} whatsappUrl={whatsappUrl} />
+            <ProductActionsClient productId={product.id} name={product.name} whatsappUrl={whatsappUrl} />
             <div className="trust-row">
               <span><ShieldCheck size={15} /> Direct support</span>
               <span><Sparkles size={15} /> Curated pieces</span>
@@ -100,8 +98,4 @@ export default async function ProductPage({ params }: Props) {
   );
 }
 
-function ProductActions({ productId, name, whatsappUrl }: { productId: string; name: string; whatsappUrl: string }) {
-  return (
-    <ProductActionsClient productId={productId} name={name} whatsappUrl={whatsappUrl} />
-  );
-}
+function formatNaira(value: number): string { return `\u20a6${value.toLocaleString('en-NG')}`; }

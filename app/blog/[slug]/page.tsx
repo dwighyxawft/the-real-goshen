@@ -1,6 +1,51 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
-import { SiteChrome } from '@/components/public/site-chrome';
+import { notFound } from 'next/navigation';
+import { SiteChrome, getChromeData } from '@/components/public/site-chrome';
+import { BlogContent } from '@/components/public/blog-content';
+import { db } from '@/server/db';
+import { blogPosts } from '@/server/db/schema';
+import { and, eq, lte } from 'drizzle-orm';
+import { getPublicUrl } from '@/server/storage/r2';
 
-const content: Record<string, { title: string; type: string; paragraphs: string[] }> = { 'bag-rotation': { title:'How to build a bag rotation that works harder', type:'Style note', paragraphs:['The best wardrobe additions are the ones that make the rest of your wardrobe feel easier. A small, considered bag rotation can do exactly that.','Start with one everyday shape: something roomy enough for your essentials, structured enough to feel polished, and neutral enough to move through your week. Then add a smaller evening silhouette and one texture or colour that makes a simple outfit feel intentional.','At TrG_studio, we look for pieces that have a little presence without asking you to change who you are.'] }, 'slower-preorder': { title:'Why we love the slower preorder model', type:'Inside TrG', paragraphs:['Preorder lets us choose with more intention. Instead of filling a shelf with everything, we share pieces we believe are worth waiting for.','That usually means a lower price, a more thoughtful edit, and a direct conversation with you before anything is confirmed.','Most preorder pieces arrive in about 4 to 8 weeks after confirmation, and we keep you updated along the way.'] }, 'finishing-touch': { title:'The finishing touch is never just one thing', type:'The edit', paragraphs:['A look rarely needs more. It often needs the right detail. A sculptural earring, an unexpected heel, or a bag with just enough shine can change the whole feeling.','The most memorable accessories do not compete with you. They make room for you to show up fully.'] } };
-export default function BlogArticle({ params }: { params: { slug: string } }) { const post = content[params.slug] ?? content['bag-rotation']; return <SiteChrome><article><section className="page-hero"><div className="container"><Link href="/blog" className="breadcrumb"><ArrowLeft size={14} style={{ display:'inline', marginRight:4 }} /> Back to journal</Link><span className="eyebrow eyebrow-light" style={{ marginTop:30 }}>{post.type} · TrG_studio journal</span><h1>{post.title}</h1></div></section><div className="container" style={{ maxWidth:760, paddingTop:64, paddingBottom:90 }}><div className="eyebrow">Style · Lagos</div>{post.paragraphs.map((paragraph) => <p key={paragraph} style={{ fontSize:18, lineHeight:1.8, color:'var(--muted)', marginTop:24 }}>{paragraph}</p>)}</div></article></SiteChrome>; }
+export const revalidate = 60;
+
+type Props = { params: { slug: string } };
+
+export async function generateMetadata({ params }: Props) {
+  const post = (await db.select().from(blogPosts).where(and(eq(blogPosts.slug, params.slug), eq(blogPosts.isPublished, true), lte(blogPosts.publishedAt, new Date()))).limit(1))[0];
+  if (!post) return { title: 'Article not found' };
+  return { title: `${post.title} — TrG Studio Journal`, description: post.excerpt };
+}
+
+export default async function BlogArticle({ params }: Props) {
+  const { settings, categories, discountBar } = await getChromeData();
+  const post = (await db.select().from(blogPosts).where(and(eq(blogPosts.slug, params.slug), eq(blogPosts.isPublished, true), lte(blogPosts.publishedAt, new Date()))).limit(1))[0];
+  if (!post) notFound();
+
+  const coverUrl = post.coverImageKey ? getPublicUrl(post.coverImageKey) : null;
+
+  return (
+    <SiteChrome settings={settings} categories={categories} discountBar={discountBar}>
+      <article>
+        <section className="page-hero">
+          <div className="container">
+            <Link href="/blog" className="breadcrumb"><ArrowLeft size={14} style={{ display: 'inline', marginRight: 4 }} /> Back to journal</Link>
+            <span className="eyebrow eyebrow-light" style={{ marginTop: 30 }}>TrG_studio journal</span>
+            <h1>{post.title}</h1>
+          </div>
+        </section>
+        {coverUrl && (
+          <div className="container" style={{ maxWidth: 860, marginTop: 40 }}>
+            <Image src={coverUrl} alt={post.title} width={860} height={480} style={{ width: '100%', height: 'auto', borderRadius: 20 }} unoptimized />
+          </div>
+        )}
+        <div className="container" style={{ maxWidth: 760, paddingTop: 48, paddingBottom: 90 }}>
+          {post.excerpt && <p style={{ fontSize: 20, color: 'var(--muted)', marginBottom: 32 }}>{post.excerpt}</p>}
+          <BlogContent content={post.content} />
+        </div>
+      </article>
+    </SiteChrome>
+  );
+}

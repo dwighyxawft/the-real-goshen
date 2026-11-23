@@ -1,6 +1,77 @@
+'use client';
+
 import Link from 'next/link';
-import { BarChart3, Boxes, ChevronRight, CircleHelp, LayoutDashboard, MessageSquare, Package, Settings, ShoppingBag, Users } from 'lucide-react';
-const nav = [['Dashboard','/admin',LayoutDashboard],['Products','/admin/products',Package],['Customer interests','/admin/interests',ShoppingBag],['Messages','/admin/contacts',MessageSquare],['Discounts','/admin/discounts',SparkIcon],['FAQs','/faq',CircleHelp],['Settings','/admin/settings',Settings]] as const;
-function SparkIcon() { return <span>✦</span>; }
-export default function AdminPage() { return <div className="admin-shell"><aside className="admin-sidebar"><Link href="/" className="brand-mark"><span className="brand-monogram">TrG</span><span className="brand-name">TrG_studio</span></Link><nav>{nav.map(([label, href, Icon]) => <Link key={href} href={href} className={href === '/admin' ? 'active' : ''}><Icon size={17} /> {label}</Link>)}</nav><div style={{ position:'absolute', bottom:24, left:16, right:16 }}><span className="helper" style={{ color:'var(--muted-dark)' }}>Signed in as</span><p style={{ margin:'5px 0 14px', color:'var(--gold-light)', fontSize:13 }}>Store owner</p><Link href="/" className="helper" style={{ color:'#fff' }}>View website</Link></div></aside><main className="admin-main"><div className="admin-top"><div><span className="eyebrow">Saturday, 21 November</span><h1>Good morning</h1><p className="helper">Here is what is happening with your shop.</p></div><Link href="/products" className="button button-dark">View shop</Link></div><div className="admin-grid"><div className="admin-stat"><span>Interests today</span><strong>12</strong><span className="status-chip green">+18% this week</span></div><div className="admin-stat"><span>Pending interests</span><strong>28</strong><span className="helper">Needs your reply</span></div><div className="admin-stat"><span>Unread messages</span><strong>5</strong><span className="helper">Across 3 conversations</span></div><div className="admin-stat"><span>Published products</span><strong>48</strong><span className="helper">8 preorder pieces</span></div></div><div className="admin-columns"><section className="admin-card"><div className="section-heading" style={{ marginBottom:6 }}><h2>Today's interests</h2><Link href="/cart" className="text-link">View all</Link></div>{['Amaka Okafor','Tolu Adebayo','Chioma Eze','Zainab Yusuf','Dami Bello'].map((name,index) => <div className="admin-row" key={name}><div><strong>{name}</strong><div className="helper">{index + 1} items · ₦{(38500 - index * 2500).toLocaleString()}</div></div><div style={{ textAlign:'right' }}><span className={`status-chip ${index > 1 ? 'green' : ''}`}>{index > 1 ? 'Contacted' : 'New'}</span><div className="helper" style={{ marginTop:5 }}>Today</div></div><ChevronRight size={17} color="var(--muted)" /></div>)}</section><section className="admin-card"><h2>Needs attention</h2><div className="admin-row"><div><strong>New messages</strong><div className="helper">5 waiting for a reply</div></div><MessageSquare size={18} color="var(--danger)" /></div><div className="admin-row"><div><strong>Preorder reminders</strong><div className="helper">3 customers to follow up with</div></div><ClockIcon /></div><div className="admin-row"><div><strong>Active sale</strong><div className="helper">Weekend Edit · 20% off</div></div><BarChart3 size={18} color="var(--gold-text)" /></div></section></div></main></div>; }
-function ClockIcon() { return <span style={{ color:'var(--warning)' }}>◷</span>; }
+import { ChevronRight, Clock3, MessageSquare, ShoppingBag } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getDashboard } from '@/lib/api/account';
+import { formatNaira } from '@/lib/format';
+
+export default function AdminDashboard() {
+  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: getDashboard, retry: false });
+
+  return (
+    <AdminLayout title="Dashboard" eyebrow="Here is what is happening with your shop">
+      {isLoading ? (
+        <div className="admin-grid"><div className="skeleton" style={{ height: 120, borderRadius: 16 }} /><div className="skeleton" style={{ height: 120, borderRadius: 16 }} /><div className="skeleton" style={{ height: 120, borderRadius: 16 }} /><div className="skeleton" style={{ height: 120, borderRadius: 16 }} /></div>
+      ) : data ? (
+        <>
+          <div className="admin-grid">
+            <div className="admin-stat"><span>Interests today</span><strong>{data.stats.interestsToday}</strong></div>
+            <div className="admin-stat"><span>Pending interests</span><strong>{data.stats.publishedProducts}</strong><span className="helper">Published products</span></div>
+            <div className="admin-stat"><span>Messages today</span><strong>{data.stats.contactsToday}</strong></div>
+            <div className="admin-stat"><span>Active discounts</span><strong>{data.stats.activeDiscounts}</strong></div>
+          </div>
+          <div className="admin-columns">
+            <section className="admin-card">
+              <div className="section-heading" style={{ marginBottom: 6 }}>
+                <h2>Today's interests</h2>
+                <Link href="/admin/interests" className="text-link">View all</Link>
+              </div>
+              {data.todayInterests.length > 0 ? (
+                data.todayInterests.map((item) => (
+                  <Link href={`/admin/interests/${item.id}`} className="admin-row" key={item.id}>
+                    <div>
+                      <strong>{item.customerName}</strong>
+                      <div className="helper">{item.reference} · {formatNaira(item.totalEstimate)}</div>
+                    </div>
+                    <span className={`status-chip ${item.status === 'completed' ? 'green' : ''}`}>{item.status}</span>
+                    <ChevronRight size={17} color="var(--muted)" />
+                  </Link>
+                ))
+              ) : <p className="helper" style={{ padding: 20 }}>No interests today yet.</p>}
+            </section>
+            <section className="admin-card">
+              <h2>Needs attention</h2>
+              {data.needsAttention.length > 0 ? (
+                data.needsAttention.slice(0, 6).map((item) => (
+                  <Link href={`/admin/interests/${item.id}`} className="admin-row" key={item.id}>
+                    <div>
+                      <strong>{item.customerName}</strong>
+                      <div className="helper">{item.reference} · {item.status}</div>
+                    </div>
+                    <ChevronRight size={17} color="var(--muted)" />
+                  </Link>
+                ))
+              ) : <p className="helper" style={{ padding: 20 }}>Everything is handled.</p>}
+            </section>
+          </div>
+          {data.activeDiscounts.length > 0 && (
+            <section className="admin-card" style={{ marginTop: 24 }}>
+              <h2>Active discounts</h2>
+              {data.activeDiscounts.map((d: any) => (
+                <div className="admin-row" key={d.id}>
+                  <div><strong>{d.name}</strong><div className="helper">{d.scope === 'all' ? 'All products' : d.product?.name ?? 'Single product'}</div></div>
+                  <span className="badge discount">−{d.percentage}%</span>
+                  <span className={`status-chip ${d.state === 'running' ? 'green' : ''}`}>{d.state}</span>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
+      ) : (
+        <div className="empty-state"><p>Could not load dashboard data.</p></div>
+      )}
+    </AdminLayout>
+  );
+}

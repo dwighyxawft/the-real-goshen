@@ -1,4 +1,55 @@
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/admin-layout';
-const rows = [{ ref:'TRG-4F8K2Q', name:'Amaka Okafor', phone:'+234 803 000 0000', items:'Sienna Structured Tote · 2 items', total:'₦70,000', status:'New' }, { ref:'TRG-8J2L9A', name:'Tolu Adebayo', phone:'+234 806 000 0000', items:'Muse Pointed Heels · 1 item', total:'₦32,000', status:'Contacted' }, { ref:'TRG-7M1P4C', name:'Chioma Eze', phone:'+234 810 000 0000', items:'Noir Mini Top Handle · 1 item', total:'₦29,500', status:'Completed' }];
-export default function InterestsPage() { return <AdminLayout title="Customer interests" eyebrow="People who sent you their picks"><section className="admin-card"><div className="filter-chips" style={{ marginBottom:18 }}><button className="chip active">Today · 12</button><button className="chip">Past</button><button className="chip">All</button><button className="chip">New</button><button className="chip">Contacted</button><button className="chip">Completed</button></div>{rows.map((row) => <Link href={`/admin/interests/${row.ref}`} className="admin-row" key={row.ref}><div><strong>{row.name}</strong><div className="helper">{row.phone} · {row.ref}</div></div><div className="helper">{row.items}</div><strong>{row.total}</strong><span className={`status-chip ${row.status === 'Completed' ? 'green' : ''}`}>{row.status}</span></Link>)}</section></AdminLayout>; }
+import { listAdminInterests } from '@/lib/api/interests';
+import { formatNaira } from '@/lib/format';
+
+const TABS = [
+  { value: 'today', label: 'Today' },
+  { value: 'past', label: 'Past' },
+  { value: 'all', label: 'All' },
+] as const;
+
+export default function InterestsPage() {
+  const [tab, setTab] = useState<string>('today');
+  const [q, setQ] = useState('');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-interests', tab, q],
+    queryFn: () => listAdminInterests({ tab, q }),
+    retry: false,
+  });
+
+  return (
+    <AdminLayout title="Customer interests" eyebrow="People who sent you their picks">
+      <div className="filter-chips" style={{ marginBottom: 18 }}>
+        {TABS.map((t) => (
+          <button key={t.value} className={`chip ${tab === t.value ? 'active' : ''}`} onClick={() => setTab(t.value)}>
+            {t.label} · {data?.tabCounts ? (t.value === 'today' ? data.tabCounts.today : t.value === 'past' ? data.tabCounts.past : data.tabCounts.all) : 0}
+          </button>
+        ))}
+      </div>
+      <section className="admin-card">
+        {isLoading ? (
+          <div className="skeleton" style={{ height: 200, borderRadius: 12 }} />
+        ) : data?.items.length ? (
+          data.items.map((interest) => (
+            <Link href={`/admin/interests/${interest.id}`} className="admin-row" key={interest.id}>
+              <div>
+                <strong>{interest.customerName}</strong>
+                <div className="helper">{interest.reference} · {interest.customerPhone}</div>
+              </div>
+              <strong>{formatNaira(interest.totalEstimate)}</strong>
+              <span className={`status-chip ${interest.status === 'completed' ? 'green' : interest.status === 'cancelled' ? '' : ''}`}>{interest.status}</span>
+            </Link>
+          ))
+        ) : (
+          <div className="empty-state"><h2>No interests here yet</h2><p>When customers submit their picks, they appear here.</p></div>
+        )}
+      </section>
+    </AdminLayout>
+  );
+}
